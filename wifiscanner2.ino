@@ -12,6 +12,16 @@
 #include <Wire.h>   
 #include <Approximate.h>
 #include "SH1106Wire.h"   // legacy: #include "SH1106.h"
+#include <Arduino.h>
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <AsyncElegantOTA.h>
+
+#define LIGHT_TIMER 60 //seconds for lights to remain on after detecting wifi signal
+#define RSSI_MIN -60 //minimum RSSI signal strength to turn lights on (negative values)
+
+AsyncWebServer server(80);
 
 
 //#include <StreamLib.h>
@@ -44,51 +54,69 @@ void setup() {
     approx.setActiveDeviceHandler(onActiveDevice);
     approx.begin();
   }
+    Serial.println("");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/plain", "Hi! I am a wifiscanner.");
+  });
+
+  AsyncElegantOTA.begin(&server);    // Start ElegantOTA
+  server.begin();
+  Serial.println("HTTP server started");
 }
 
 int lightsTime = 0;
 int rssistrength;
-CRGB color1 = CRGB( 255, 204, 102);
+unsigned long timermillis;
+CRGB color1 = CRGB(255, 100, 0);
 
 void loop() {
+  //delay(10);
   approx.loop();
     display.clear();
     String rssistring = "RSSI: " + String(rssistrength);
     display.drawString(0, 0, rssistring);
-    String timestring = "Time: " + String(lightsTime);
+
+    
+
+  if ((millis() - timermillis) < (LIGHT_TIMER * 1000)){
+          fill_solid(leds, NUM_LEDS, color1);
+  FastLED.show();
+      String timestring = "Time: " + String(millis() - timermillis);
     display.drawString(0, 16, timestring);
-    display.display();
+  }
+  else {
+          fill_solid( leds, NUM_LEDS, CRGB(0,0,0));
+  FastLED.show();
+  }
 
-
-  if (lightsTime > 0){
+  /*if (lightsTime > 0){
     lightsTime--;
-    leds[0] = color1;
-    if (rssistrength > -40) {leds[1] = color1;} else {leds[1] = CRGB(0,0,0);}
-    if (rssistrength > -30) {leds[2] = color1;} else {leds[2] = CRGB(0,0,0);}
-    if (rssistrength > -20) {leds[3] = color1;} else {leds[3] = CRGB(0,0,0);}
-    if (rssistrength > -10) {leds[4] = color1;} else {leds[4] = CRGB(0,0,0);}
-    if (rssistrength > -5) {leds[5] = color1;} else {leds[5] = CRGB(0,0,0);}
-      //fill_solid(leds, NUM_LEDS, color1);
+      fill_solid(leds, NUM_LEDS, color1);
   FastLED.show();
   }
 
   if (lightsTime == 0){
       fill_solid( leds, NUM_LEDS, CRGB(0,0,0));
   FastLED.show();
-  }
+  }*/
   
-  if(ledToggleIntervalMs > 0 && millis() > ledToggleAtMs) {
+ /* if(ledToggleIntervalMs > 0 && millis() > ledToggleAtMs) {
     ledState = !ledState;
     ledToggleAtMs = millis() + ledToggleIntervalMs;
-  }
+  }*/
+  display.display();
 }
 
 void onActiveDevice(Device *device, Approximate::DeviceEvent event) {
   if(event == Approximate::SEND) {  
     
-    ledToggleIntervalMs = map(device->getRSSI(), -100, 0, 1000, 0);
+    //ledToggleIntervalMs = map(device->getRSSI(), -100, 0, 1000, 0);
     Serial.println(device->getRSSI());
     rssistrength = device->getRSSI();
-    if (rssistrength > -40){lightsTime = 3000;}
+    if (rssistrength > RSSI_MIN){lightsTime = 3000;
+    timermillis = millis();}
   }
 }
