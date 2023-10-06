@@ -22,9 +22,9 @@ char auth[] = "5D3OmcWGz1X1QeFZrl_HS0E6EgOaQA7y";  //BLYNK
 
 #define LIGHT_TIMER 60 //seconds for lights to remain on after detecting wifi signal
 #define RSSI_MIN -55 //minimum RSSI signal strength to turn lights on (negative values)
+#define DEPART_CYCLES 5 //number of times signal has to be < RSSI_MIN before device is DEPARTed
 
-#define BLYNK_PRINT Serial // Defines the object that is used for printing
-#define BLYNK_DEBUG // Optional, this enables more detailed prints
+
 
 AsyncWebServer server(80);
 
@@ -125,28 +125,29 @@ void loop() {
 
     
 
-  if ((millis() - timermillis) < (LIGHT_TIMER * 1000)){
-          fill_solid(leds, NUM_LEDS, color1);
-  FastLED.show();
-  lightson = true;
-      String timestring = "Time: " + String(((LIGHT_TIMER * 1000) - (millis() - timermillis)/1000));
-    display.drawString(0, 16, timestring);
-  }
-  else {
+  if ((millis() - timermillis) > (LIGHT_TIMER * 1000)){
+
     lightson = false;
           fill_solid( leds, NUM_LEDS, CRGB(0,0,0));
   FastLED.show();
   }
 
 
-if (hasleft > 3){
+if (hasleft > DEPART_CYCLES){
       lightson = false;
           fill_solid( leds, NUM_LEDS, CRGB(0,0,0));
   FastLED.show();
-  timermillis = 0;
   hasleft = 0;
 }
-  display.display();
+  
+
+  if (lightson) {
+          fill_solid(leds, NUM_LEDS, color1);
+  FastLED.show();
+      String timestring = "Time: " + String(((LIGHT_TIMER * 1000) - (millis() - timermillis))/1000);
+    display.drawString(0, 16, timestring);
+  }
+display.display();
 }
 
 void onActiveDevice(Device *device, Approximate::DeviceEvent event) {
@@ -156,7 +157,7 @@ void onActiveDevice(Device *device, Approximate::DeviceEvent event) {
     Serial.println(device->getRSSI());
     rssistrength = device->getRSSI();
     Blynk.virtualWrite(V1, rssistrength);
-    if (rssistrength > RSSI_MIN){
+    if (rssistrength > RSSI_MIN){lightson = true;
     timermillis = millis();}
     if ((rssistrength < RSSI_MIN) && (lightson)) {
     hasleft++;}
