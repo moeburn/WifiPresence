@@ -99,19 +99,24 @@ Blynk.connect();
 
   //  }, json);
 timermillis = millis();
-
+FastLED.setBrightness(255);
 }
 
 bool newdata = false;
+bool lightson = false;
+int hasleft = 0;
 
 void loop() {
   //delay(10);
   approx.loop();
     Blynk.run();
-          if ((millis() - millisTemp >= 1000) && newdata)
+          if ((millis() - millisTemp >= 3000) && newdata)
       {
         millisTemp = millis();
-        Blynk.virtualWrite(V1, rssistrength);
+        
+        Blynk.virtualWrite(V2, lightson);
+        Blynk.virtualWrite(V3, RSSI_MIN);
+        Blynk.virtualWrite(V4, (lightson*255));
         newdata = false;
       }
     display.clear();
@@ -123,30 +128,24 @@ void loop() {
   if ((millis() - timermillis) < (LIGHT_TIMER * 1000)){
           fill_solid(leds, NUM_LEDS, color1);
   FastLED.show();
-      String timestring = "Time: " + String((LIGHT_TIMER * 1000) - (millis() - timermillis));
+  lightson = true;
+      String timestring = "Time: " + String(((LIGHT_TIMER * 1000) - (millis() - timermillis)/1000));
     display.drawString(0, 16, timestring);
   }
   else {
+    lightson = false;
           fill_solid( leds, NUM_LEDS, CRGB(0,0,0));
   FastLED.show();
   }
 
 
-  /*if (lightsTime > 0){
-    lightsTime--;
-      fill_solid(leds, NUM_LEDS, color1);
+if (hasleft > 3){
+      lightson = false;
+          fill_solid( leds, NUM_LEDS, CRGB(0,0,0));
   FastLED.show();
-  }
-
-  if (lightsTime == 0){
-      fill_solid( leds, NUM_LEDS, CRGB(0,0,0));
-  FastLED.show();
-  }*/
-  
- /* if(ledToggleIntervalMs > 0 && millis() > ledToggleAtMs) {
-    ledState = !ledState;
-    ledToggleAtMs = millis() + ledToggleIntervalMs;
-  }*/
+  timermillis = 0;
+  hasleft = 0;
+}
   display.display();
 }
 
@@ -156,8 +155,11 @@ void onActiveDevice(Device *device, Approximate::DeviceEvent event) {
     //ledToggleIntervalMs = map(device->getRSSI(), -100, 0, 1000, 0);
     Serial.println(device->getRSSI());
     rssistrength = device->getRSSI();
+    Blynk.virtualWrite(V1, rssistrength);
     if (rssistrength > RSSI_MIN){
     timermillis = millis();}
+    if ((rssistrength < RSSI_MIN) && (lightson)) {
+    hasleft++;}
     newdata = true;
        
   /* approx.onceWifiStatus(WL_CONNECTED, [](String payload) {
